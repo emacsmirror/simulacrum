@@ -50,16 +50,41 @@ After FORM has been evaluated, `emacslisten-last-form' is set to
   (setq emacslisten-last-form emacslisten-this-form))
 
 (defun emacslisten-evaluate (form)
-  "Evaluate FORM as a voice driven command.
+  "Evaluate FORM as a voice driven command."
+  (emacslisten-generate-event form))
 
-This adds a new event to `unread-command-events' of the form
-\(emacslisten--remote-form . FORM\).  By defining a key binding for
-\"<emacslisten--remote-form>\", custom form handlers can be added for
-voice commands.  These handlers should inspect `this-command-keys' to
-get FORM."
+(defun emacslisten-generate-event (form)
+  "Generate synthetic input event for evaluating FORM.
+
+By evaluating FORM in the handler of the synthetic event, this function
+can return before FORM is evaluated, avoiding blocking.  In addition,
+other Emacs features like undo history and keyboard macros will handle
+the evaluation of FORM as they would handle commands evaluated through
+usual events.
+
+Invoking this function adds a new event to `unread-command-events' of
+the form \(emacslisten--remote-form . FORM\).  By defining a key binding
+for \"<emacslisten--remote-form>\", a function can evaluate the form as
+if it was invoked in an interactive context.  By default,
+`emacslisten--handle-remote-form' is bound as the handler globally.  Any
+function bound as the handler for the `emacslisten--remote-form' event
+type needs to inspect `this-command-keys' to get FORM."
   (setq unread-command-events
         (append unread-command-events
                 (list (cons 'emacslisten--remote-form form)))))
+
+(defun emacslisten-evaluate-immediately (form)
+  "Evaluate FORM immediately.
+
+In contrast to `emacslisten-evaluate-as-command', FORM is not evaluated
+as if it was invoked interactively.  This means that this function
+blocks and can cause other things like undo-history and keyboard macros
+to behave unexpectedly."
+  ;; For some reason, selected window can differ from
+  ;; (selected-window) when evaluated by Emacs.
+  (with-selected-window (selected-window)
+    (with-current-buffer (current-buffer)
+      (emacslisten--evaluate-form form))))
 
 (defun emacslisten--handle-remote-form ()
   "Default form handler.
