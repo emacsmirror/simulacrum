@@ -1,25 +1,14 @@
-#+title: EmacsListen
-Framework for voice driven computer interaction with Emacs.
+#+title: simulacrum.el
+Inject arbitrary forms into the event stream.
 
 * Installation
-This repository contains the core for evaluating commands from a
-speech recognition system.  To set this up, add the following to your
-configuration:
-
 #+begin_src elisp
-  (use-package emacslisten
-    :vc (:url "https://github.com/ErikPrantare/EmacsListen"
+  (use-package simulacrum
+    :vc (:url "https://github.com/ErikPrantare/simulacrum.el"
               :branch "master"
               :rev :newest))
 #+end_src
 
-To receive commands, Emacs must run as a server.  This can be achieved
-by adding ~(server-start)~ to your configuration.
-
-Commands are invoked in EmacsListen by calling ~emacslisten-evaluate~
-with the lisp form that should be evaluated.
-
-** Phony
-To be able to define voice commands from Emacs lisp, install [[https://github.com/ErikPrantare/phony.el][phony.el]].
-That repository also contains information on how to set up a speech
-recognition engine.
+Forms are injected by calling ~simulacrum-evaluate~ with the lisp form
+that should be injected into the event stream.  The form will be
+evaluated as part of the usual command loop.

@@ -1,6 +1,6 @@
-;;; emacslisten.el --- Framework for voice driven computing  -*- lexical-binding: t; -*-
+;;; simulacrum.el --- Inject arbitrary forms into the event stream  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025  Erik Präntare
+;; Copyright (C) 2025, 2026  Erik Präntare
 
 ;; Author: Erik Präntare <erik@adjoint-modality2>
 ;; Keywords: convenience
@@ -22,38 +22,38 @@
 
 ;;; Commentary:
 
-;; Core form evaluator for EmacsListen.
+;;
 
 ;;; Code:
 
-(defvar emacslisten-this-form nil
-  "The form currently evaluated by EmacsListen.
+(defvar simulacrum-this-form nil
+  "The form currently evaluated by simulacrum.
 
 This variable may be changed by the evaluated form.  Whatever gets
-put in this variable will be in `emacslisten-last-form' during the
+put in this variable will be in `simulacrum-last-form' during the
 form next evaluated.")
 
-(defvar emacslisten-last-form nil
-  "The form last evaluated by EmacsListen.
+(defvar simulacrum-last-form nil
+  "The form last evaluated by simulacrum.
 
-This will be whatever `emacslisten-this-form' was at the end of the
+This will be whatever `simulacrum-this-form' was at the end of the
 previously evaluated form.")
 
-(defun emacslisten--evaluate-form (form)
+(defun simulacrum--evaluate-form (form)
   "Evaluate FORM.
 
-Before FORM is evaluated, `emacslisten-this-form' is set to FORM.
-After FORM has been evaluated, `emacslisten-last-form' is set to
-`emacslisten-this-form'."
-  (setq emacslisten-this-form form)
+Before FORM is evaluated, `simulacrum-this-form' is set to FORM.
+After FORM has been evaluated, `simulacrum-last-form' is set to
+`simulacrum-this-form'."
+  (setq simulacrum-this-form form)
   (eval form)
-  (setq emacslisten-last-form emacslisten-this-form))
+  (setq simulacrum-last-form simulacrum-this-form))
 
-(defun emacslisten-evaluate (form)
+(defun simulacrum-evaluate (form)
   "Evaluate FORM as a voice driven command."
-  (emacslisten-generate-event form))
+  (simulacrum-generate-event form))
 
-(defun emacslisten-generate-event (form)
+(defun simulacrum-generate-event (form)
   "Generate synthetic input event for evaluating FORM.
 
 By evaluating FORM in the handler of the synthetic event, this function
@@ -63,20 +63,20 @@ the evaluation of FORM as they would handle commands evaluated through
 usual events.
 
 Invoking this function adds a new event to `unread-command-events' of
-the form \(emacslisten--remote-form . FORM\).  By defining a key binding
-for \"<emacslisten--remote-form>\", a function can evaluate the form as
+the form \(simulacrum--remote-form . FORM\).  By defining a key binding
+for \"<simulacrum--remote-form>\", a function can evaluate the form as
 if it was invoked in an interactive context.  By default,
-`emacslisten--handle-remote-form' is bound as the handler globally.  Any
-function bound as the handler for the `emacslisten--remote-form' event
+`simulacrum--handle-remote-form' is bound as the handler globally.  Any
+function bound as the handler for the `simulacrum--remote-form' event
 type needs to inspect `this-command-keys' to get FORM."
   (setq unread-command-events
         (append unread-command-events
-                (list (cons 'emacslisten--remote-form form)))))
+                (list (cons 'simulacrum--remote-form form)))))
 
-(defun emacslisten-evaluate-immediately (form)
+(defun simulacrum-evaluate-immediately (form)
   "Evaluate FORM immediately.
 
-In contrast to `emacslisten-generate-event', FORM is not evaluated as if
+In contrast to `simulacrum-generate-event', FORM is not evaluated as if
 it was invoked interactively.  This means that this function blocks and
 can cause other things like undo-history and keyboard macros to behave
 unexpectedly."
@@ -84,18 +84,18 @@ unexpectedly."
   ;; (selected-window) when evaluated by Emacs.
   (with-selected-window (selected-window)
     (with-current-buffer (current-buffer)
-      (emacslisten--evaluate-form form))))
+      (simulacrum--evaluate-form form))))
 
-(defun emacslisten--handle-remote-form ()
+(defun simulacrum--handle-remote-form ()
   "Default form handler.
 
-See `emacslisten-evaluate' for more information concerning form
+See `simulacrum-evaluate' for more information concerning form
 handlers."
   (interactive)
   (let ((form (cdr (elt (this-command-keys) 0))))
-    (emacslisten--evaluate-form form)))
+    (simulacrum--evaluate-form form)))
 
-(keymap-global-set "<emacslisten--remote-form>" #'emacslisten--handle-remote-form)
+(keymap-global-set "<simulacrum--remote-form>" #'simulacrum--handle-remote-form)
 
-(provide 'emacslisten)
-;;; emacslisten.el ends here
+(provide 'simulacrum)
+;;; simulacrum.el ends here
