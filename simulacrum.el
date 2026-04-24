@@ -45,53 +45,43 @@ previously evaluated form.")
 Before FORM is evaluated, `simulacrum-this-form' is set to FORM.
 After FORM has been evaluated, `simulacrum-last-form' is set to
 `simulacrum-this-form'."
+  (interactive (list (cdr last-input-event)))
   (setq simulacrum-this-form form)
   (eval form)
   (setq simulacrum-last-form simulacrum-this-form))
 
-(defun simulacrum-generate-event (form)
-  "Generate synthetic input event for evaluating FORM.
+(defun simulacrum-generate-event (type &optional data)
+  "Generate synthetic input event TYPE with optional DATA.
 
-By evaluating FORM in the handler of the synthetic event, this function
-can return before FORM is evaluated, avoiding blocking.  In addition,
-other Emacs features like undo history and keyboard macros will handle
-the evaluation of FORM as they would handle commands evaluated through
-usual events.
+This event can be handled by the usual methods of setting key bindings.
+For example, with
 
-Invoking this function adds a new event to `unread-command-events' of
-the form \(simulacrum--remote-form . FORM\).  By defining a key binding
-for \"<simulacrum--remote-form>\", a function can evaluate the form as
-if it was invoked in an interactive context.  By default,
-`simulacrum--handle-remote-form' is bound as the handler globally.  Any
-function bound as the handler for the `simulacrum--remote-form' event
-type needs to inspect `this-command-keys' to get FORM."
+  (keymap-global-set \"<my-event-type>\"
+                     (lambda (number)
+                       (interactive (list (cdr last-input-event)))
+                       (message \"Number emitted: %s\" number)))
+
+evaluating
+
+  (simulacrum-generate-event 'my-event-type 54)
+
+will output the message \"Number emitted: 54\".
+
+As with all other keybindings, the command is executed at the point that
+event is handled by the command loop.  This means that it is not
+executed immediately.  This allows for multiple things
+
+- Guaranteed execution ordering without blocking.
+- Tracked by macros.
+- Commands executed this way will interact with undo-borders in a more
+  predictable way."
   (setq unread-command-events
         (append unread-command-events
-                (list (cons 'simulacrum--remote-form form)))))
+                (list (cons type data)))))
 
-(defun simulacrum-evaluate-immediately (form)
-  "Evaluate FORM immediately.
-
-In contrast to `simulacrum-generate-event', FORM is not injected into
-the event stream.  This means that this function blocks and can cause
-other things like undo-history and keyboard macros to behave
-unexpectedly."
-  ;; For some reason, selected window can differ from
-  ;; (selected-window) when evaluated by Emacs.
-  (with-selected-window (selected-window)
-    (with-current-buffer (current-buffer)
-      (simulacrum--evaluate-form form))))
-
-(defun simulacrum--handle-remote-form ()
-  "Default form handler.
-
-See `simulacrum-generate-event' for more information concerning form
-handlers."
-  (interactive)
-  (let ((form (cdr (elt (this-command-keys) 0))))
-    (simulacrum--evaluate-form form)))
-
-(keymap-global-set "<simulacrum--remote-form>" #'simulacrum--handle-remote-form)
+;;; TODO
+;; - Patch describe-key to handle user-defined event types.
+;; - Patch repeat.el as well.
 
 (provide 'simulacrum)
 ;;; simulacrum.el ends here
