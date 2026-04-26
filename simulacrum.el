@@ -6,15 +6,15 @@
 ;; Keywords: convenience
 ;; Created: 19 Aug 2025
 
-;; This program is free software; you can redistribute it and/or
+;; simulacrum.el is free software; you can redistribute it and/or
 ;; modify it under the terms of the GNU Affero General Public License
 ;; as published by the Free Software Foundation, either version 3 of
 ;; the License, or (at your option) any later version.
 
-;; This program is distributed in the hope that it will be useful,
+;; simulacrum.el is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;; Affero General Public License for more details.
 
 ;; You should have received a copy of the GNU Affero General Public
 ;; License along with this program.  If not, see
@@ -45,10 +45,17 @@ previously evaluated form.")
 Before FORM is evaluated, `simulacrum-this-form' is set to FORM.
 After FORM has been evaluated, `simulacrum-last-form' is set to
 `simulacrum-this-form'."
-  (interactive (list (cdr last-input-event)))
+  (interactive (list (cadr last-input-event)))
   (setq simulacrum-this-form form)
   (eval form)
   (setq simulacrum-last-form simulacrum-this-form))
+
+(defvar simulacrum--event-types (make-hash-table)
+  "Defined event types.")
+
+(defmacro simulacrum-define-event-type (type)
+  "Define new input event TYPE."
+  `(setf (map-elt simulacrum--event-types ',type) t))
 
 (defun simulacrum-generate-event (type &optional data)
   "Generate synthetic input event TYPE with optional DATA.
@@ -58,7 +65,7 @@ For example, with
 
   (keymap-global-set \"<my-event-type>\"
                      (lambda (number)
-                       (interactive (list (cdr last-input-event)))
+                       (interactive (list (cadr last-input-event)))
                        (message \"Number emitted: %s\" number)))
 
 evaluating
@@ -69,15 +76,22 @@ will output the message \"Number emitted: 54\".
 
 As with all other keybindings, the command is executed at the point that
 event is handled by the command loop.  This means that it is not
-executed immediately.  This allows for multiple things
+executed immediately.
+
+Evaluating functions this way for synthetic events provides the
+following benefits over evaluating the function directly:
 
 - Guaranteed execution ordering without blocking.
-- Tracked by macros.
-- Commands executed this way will interact with undo-borders in a more
-  predictable way."
+- Compatibility with keyboard macros.
+- More predictable interaction with undo-boundaries."
+  (unless (map-elt simulacrum--event-types type)
+    (error "Event type `%S' not defined"
+           type))
   (setq unread-command-events
         (append unread-command-events
-                (list (cons type data)))))
+                (list (if data
+                          (list type data)
+                        (list type))))))
 
 ;;; TODO
 ;; - Patch describe-key to handle user-defined event types.
