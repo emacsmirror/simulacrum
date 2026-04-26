@@ -26,6 +26,8 @@
 
 ;;; Code:
 
+(require 'repeat)
+
 (defvar simulacrum-this-form nil
   "The form currently evaluated by simulacrum.
 
@@ -91,17 +93,27 @@ following benefits over evaluating the function directly:
         (append unread-command-events
                 (list (cons type data)))))
 
+(defvar simulacrum--last-event nil)
+
+(defun simulacrum--execute-command (function)
+  (let ((arguments (cdr (if (repeat-is-really-this-command)
+                          simulacrum--last-event
+                        last-command-event))))
+    (apply function arguments)
+    (unless (repeat-is-really-this-command)
+      (setq last-repeatable-command this-command)
+      (setq simulacrum--last-event last-command-event))))
+
 (defun simulacrum-command (function)
   ;; TODO: Store this in a hash for when we eventually want to hack
   ;; describe-key.  Remember to make the hash not hold the key from
   ;; the garbage collector.
-  (lambda (&rest args)
-    (interactive (cdr last-command-event))
-    (apply function args)))
+  (lambda ()
+    (interactive)
+    (simulacrum--execute-command function)))
 
 ;;; TODO
 ;; - Patch describe-key to handle user-defined event types.
-;; - Patch repeat.el as well.
 
 (provide 'simulacrum)
 ;;; simulacrum.el ends here

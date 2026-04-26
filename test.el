@@ -24,50 +24,71 @@
 (require 'ert)
 (require 'simulacrum)
 
+(defmacro simulacrum-test (&rest body)
+  "Evaluate BODY in a fresh simulacrum environment."
+  (declare (indent 0))
+  `(let ((simulacrum--event-types (make-hash-table))
+         (simulacrum--last-event nil)
+         (unread-command-events nil)
+         (overriding-local-map (make-sparse-keymap)))
+     ,@body))
+
 (ert-deftest simulacrum-generated-event-triggers-command ()
-  (let ((simulacrum--event-types (make-hash-table))
-        (unread-command-events nil)
-        (overriding-local-map (make-sparse-keymap))
-        (result nil))
-    (simulacrum-define-event-type test-event)
-    (keymap-set overriding-local-map "<test-event>"
-                (simulacrum-command
-                 (lambda ()
-                   (setq result 'triggered))))
-    (simulacrum-generate-event 'test-event)
-    (execute-kbd-macro (seq-into unread-command-events 'vector))
-    (should (eq result 'triggered))))
+  (simulacrum-test
+   (let ((result nil))
+     (simulacrum-define-event-type test-event)
+     (keymap-set overriding-local-map "<test-event>"
+                 (simulacrum-command
+                  (lambda ()
+                    (setq result 'triggered))))
+     (simulacrum-generate-event 'test-event)
+     (execute-kbd-macro (seq-into unread-command-events 'vector))
+     (should (eq result 'triggered)))))
 
 (ert-deftest simulacrum-generated-event-carries-data-payload ()
-  (let ((simulacrum--event-types (make-hash-table))
-        (unread-command-events nil)
-        (overriding-local-map (make-sparse-keymap))
-        (result nil))
-    (simulacrum-define-event-type test-event)
-    (keymap-set overriding-local-map "<test-event>"
-                (simulacrum-command
-                 (lambda (data)
-                   (setq result data))))
-    (simulacrum-generate-event 'test-event 42)
-    (execute-kbd-macro (seq-into unread-command-events 'vector))
-    (should (equal result 42))))
+  (simulacrum-test
+   (let ((result nil))
+     (simulacrum-define-event-type test-event)
+     (keymap-set overriding-local-map "<test-event>"
+                 (simulacrum-command
+                  (lambda (data)
+                    (setq result data))))
+     (simulacrum-generate-event 'test-event 42)
+     (execute-kbd-macro (seq-into unread-command-events 'vector))
+     (should (equal result 42)))))
 
 (ert-deftest simulacrum-command-passes-multiple-arguments ()
-  (let ((simulacrum--event-types (make-hash-table))
-        (unread-command-events nil)
-        (overriding-local-map (make-sparse-keymap))
-        (result nil))
-    (simulacrum-define-event-type test-event)
-    (keymap-set overriding-local-map "<test-event>"
-                (simulacrum-command
-                 (lambda (a b c)
-                   (setq result (list a b c)))))
-    (simulacrum-generate-event 'test-event 1 2 3)
-    (execute-kbd-macro (seq-into unread-command-events 'vector))
-    (should (equal result '(1 2 3)))))
+  (simulacrum-test
+   (let ((result nil))
+     (simulacrum-define-event-type test-event)
+     (keymap-set overriding-local-map "<test-event>"
+                 (simulacrum-command
+                  (lambda (a b c)
+                    (setq result (list a b c)))))
+     (simulacrum-generate-event 'test-event 1 2 3)
+     (execute-kbd-macro (seq-into unread-command-events 'vector))
+     (should (equal result '(1 2 3))))))
+
+(ert-deftest simulacrum-command-repeats-with-saved-arguments ()
+  (simulacrum-test
+   (let ((total 0))
+     (simulacrum-define-event-type test-event)
+     (keymap-set overriding-local-map "<test-event>"
+                 (simulacrum-command
+                  (lambda (n)
+                    (setq total (+ total n)))))
+     (simulacrum-generate-event 'test-event 10)
+     (let ((events (seq-into unread-command-events 'vector)))
+       (setq unread-command-events nil)
+       (execute-kbd-macro events))
+     (should (= total 10))
+     ;; If repeat-on-final-keystroke is not nil, repeat will try to
+     ;; handle an event with data, which its cannot.
+     (let ((repeat-on-final-keystroke nil))
+       (repeat 1))
+     (should (= total 20)))))
 
 (ert-deftest simulacrum-generating-undefined-event-signals-error ()
-  (let ((simulacrum--event-types (make-hash-table))
-        (unread-command-events nil))
-    (should-error (simulacrum-generate-event 'undefined-event))
-    (should (null unread-command-events))))
+  (simulacrum-test
+   (should-error (simulacrum-generate-event 'undefined-event))
+   (should (null unread-command-events))))
