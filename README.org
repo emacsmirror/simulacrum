@@ -31,3 +31,5 @@ Define an event type, bind it to a command, then generate events:
 
 When the command loop handles the generated event, it will execute the
 command and print "Got 42".
+
+For an example of usage from another package, see [[https://github.com/ErikPrantare/phony.el][phony.el]].
