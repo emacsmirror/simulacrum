@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025, 2026  Erik Präntare
 
 ;; Author: Erik Präntare
-;; Version: 0.1.0
+;; Version: 1.0.0
 ;; Homepage: https://github.com/ErikPrantare/simulacrum.el
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: convenience
@@ -82,16 +82,22 @@ loop, not immediately."
            type))
   (setq unread-command-events
         (append unread-command-events
-                (list (cons type data)))))
+                ;; (TYPE BEG END . DATA)
+                ;; When BEG or END is nil, Emacs uses `posn-at-point'.
+                ;; `describe-key' indirectly expects this form,
+                ;; through calling `event-start' and `event-end'.
+                ;; [2026-05-04 Mon]
+                (list (append (list type nil nil)
+                              data)))))
 
 (defvar simulacrum--last-event nil)
 
 (defun simulacrum--execute-command (function)
   "Call FUNCTION with the data arguments of the current event.
 On `repeat', reuse the previous event's arguments."
-  (let ((arguments (cdr (if (repeat-is-really-this-command)
-                          simulacrum--last-event
-                        last-command-event))))
+  (let ((arguments (nthcdr 3 (if (repeat-is-really-this-command)
+                                 simulacrum--last-event
+                               last-command-event))))
     (apply function arguments)
     (unless (repeat-is-really-this-command)
       (setq last-repeatable-command this-command)
@@ -105,13 +111,12 @@ FUNCTION should take the same amount of arguments that is passed to
 keymap."
   ;; TODO: Store this in a hash for when we eventually want to hack
   ;; describe-key.  Remember to make the hash not hold the key from
-  ;; the garbage collector.
+  ;; the garbage collector.  We are going to want to add-advice
+  ;; :filter-return to help--analyze-key to modify the returned value
+  ;; whenever the computed definition is part of our hash.
   (lambda ()
     (interactive)
     (simulacrum--execute-command function)))
-
-;;; TODO
-;; - Patch describe-key to handle user-defined event types.
 
 (provide 'simulacrum)
 ;;; simulacrum.el ends here

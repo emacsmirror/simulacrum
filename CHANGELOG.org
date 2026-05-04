@@ -1,2 +1,5 @@
+* 1.0.0 [2026-05-04 Mon]
+- Fix ~describe-key~ error on custom events.
+
 * 0.1.0 [2026-04-28 Tue]
 Initial release.

@@ -8,12 +8,7 @@ external process (e.g., a voice control engine) needs to invoke
 commands with structured arguments through the command loop.
 
 * Installation
-#+begin_src elisp
-  (use-package simulacrum
-    :vc (:url "https://github.com/ErikPrantare/simulacrum.el"
-              :branch "master"
-              :rev :newest))
-#+end_src
+This package is available on [[https://melpa.org/#/getting-started][MELPA]] as ~simulacrum~.
 
 * Usage
 Define an event type, bind it to a command, then generate events:
