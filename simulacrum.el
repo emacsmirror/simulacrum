@@ -119,13 +119,25 @@ keymap."
     (setf (map-elt simulacrum--command-underlying-function command) function)
     command))
 
-(define-advice help--analyze-key (:around (f key untranslated &optional buffer) simulacrum--analyze-key)
-  "Translate the definition returned to the one passed to `simulacrum-command'."
+(defun simulacrum--resolve-command (maybe-command)
+  "Return the underlying function of MAYBE-COMMAND a simulacrum command.
+If it is not a simulacrum command, return nil."
+  (map-elt simulacrum--command-underlying-function maybe-command))
+
+(define-advice help--analyze-key (:around (f key untranslated &optional buffer) simulacrum--resolve-command)
+  "Replace returned simulacrum commands with the underlying function."
   (pcase-let* ((`(,brief-desc ,defn ,event ,mouse-msg) (funcall f key untranslated buffer)))
-    (when-let* ((function (map-elt simulacrum--command-underlying-function defn)))
+    (when-let* ((function (simulacrum--resolve-command defn)))
       (setq defn function)
       (setq brief-desc (format "%s runs the command %s" (help-key-description key untranslated) defn)))
     (list brief-desc defn event mouse-msg)))
+
+(define-advice repeat-message (:filter-args (arguments) simulacrum--resolve-command)
+  "Replace simulacrum commands in ARGS with their underlying function."
+  (pcase-let* ((`(,format . ,arguments) arguments))
+    (cons format (seq-map (lambda (argument)
+                            (or (simulacrum--resolve-command argument) argument))
+                          arguments))))
 
 (provide 'simulacrum)
 ;;; simulacrum.el ends here
