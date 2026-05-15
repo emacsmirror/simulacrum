@@ -82,22 +82,27 @@ loop, not immediately."
            type))
   (setq unread-command-events
         (append unread-command-events
-                ;; (TYPE BEG END . DATA)
+                ;; (TYPE BEG END DATA)
                 ;; When BEG or END is nil, Emacs uses `posn-at-point'.
                 ;; `describe-key' indirectly expects this form,
                 ;; through calling `event-start' and `event-end'.
                 ;; [2026-05-04 Mon]
-                (list (append (list type nil nil)
-                              data)))))
+
+                ;; We also let DATA be one element instead of the tail
+                ;; (TYPE BEG END . DATA), otherwise the error message
+                ;; when the event was unbound was "two bases in one
+                ;; event", not "event was unbound" when DATA was
+                ;; e.g. (42) [2026-05-15 Fri].
+                (list (list type nil nil data)))))
 
 (defvar simulacrum--last-event nil)
 
 (defun simulacrum--execute-command (function)
   "Call FUNCTION with the data arguments of the current event.
 On `repeat', reuse the previous event's arguments."
-  (let ((arguments (nthcdr 3 (if (repeat-is-really-this-command)
-                                 simulacrum--last-event
-                               last-command-event))))
+  (let ((arguments (nth 3 (if (repeat-is-really-this-command)
+                              simulacrum--last-event
+                            last-command-event))))
     (unless (or (repeat-is-really-this-command)
                 (eq last-event-frame 'macro))
       (setq last-event-device "simulacrum"))
