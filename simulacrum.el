@@ -82,27 +82,33 @@ loop, not immediately."
            type))
   (setq unread-command-events
         (append unread-command-events
-                ;; (TYPE BEG END DATA)
+                ;; (TYPE BEG END (DATA))
                 ;; When BEG or END is nil, Emacs uses `posn-at-point'.
                 ;; `describe-key' indirectly expects this form,
                 ;; through calling `event-start' and `event-end'.
                 ;; [2026-05-04 Mon]
 
-                ;; We also let DATA be one element instead of the tail
-                ;; (TYPE BEG END . DATA), otherwise the error message
-                ;; when the event was unbound was "two bases in one
-                ;; event", not "event was unbound" when DATA was
-                ;; e.g. (42) [2026-05-15 Fri].
-                (list (list type nil nil data)))))
+                ;; We also let DATA be wrapped in a list, otherwise
+                ;; Emacs would interpret (TYPE nil nil nil) as a Lucid
+                ;; event type (see lucid_event_type_list_p in
+                ;; keyboard.c).  (TYPE nil nil (nil)) is correctly
+                ;; seen as non-Lucid.
+                (list (list type nil nil (list data))))))
 
-(defvar simulacrum--last-event nil)
+(defun simulacrum--event-data (event)
+  "Return the data associated to simulacrum-generated EVENT."
+  (car (nth 3 event)))
+
+(defvar simulacrum--last-event nil
+  "Last simulacrum event executed.")
 
 (defun simulacrum--execute-command (function)
   "Call FUNCTION with the data arguments of the current event.
 On `repeat', reuse the previous event's arguments."
-  (let ((arguments (nth 3 (if (repeat-is-really-this-command)
-                              simulacrum--last-event
-                            last-command-event))))
+  (let ((arguments (simulacrum--event-data
+                    (if (repeat-is-really-this-command)
+                        simulacrum--last-event
+                      last-command-event))))
     (unless (or (repeat-is-really-this-command)
                 (eq last-event-frame 'macro))
       (setq last-event-device "simulacrum"))
