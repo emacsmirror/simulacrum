@@ -105,6 +105,11 @@ loop, not immediately."
 (defun simulacrum--execute-command (function)
   "Call FUNCTION with the data arguments of the current event.
 On `repeat', reuse the previous event's arguments."
+  ;; Main reason for this wrapper is to be able to set
+  ;; `last-repeatable-command'.  I should consider somehow advising
+  ;; repeat to override last-repeatable-command at that point.
+  ;; `num-nonmacro-input-events' could be useda as an identifier for
+  ;; the command.
   (let ((arguments (simulacrum--event-data
                     (if (repeat-is-really-this-command)
                         simulacrum--last-event
