@@ -1,4 +1,4 @@
-* NEXT
+* 1.1.0 [2026-06-01 Mon]
 - ~describe-key~ now describes the underlying function of the command.
 - ~repeat~ now prints the underlying function in its message.
 - ~last-event-device~ and ~device-class~ now report "simulacrum" as

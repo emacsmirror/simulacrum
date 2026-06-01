@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025, 2026  Erik Präntare
 
 ;; Author: Erik Präntare
-;; Version: 1.0.0
+;; Version: 1.1.0
 ;; Homepage: https://github.com/ErikPrantare/simulacrum.el
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: convenience
