@@ -33,5 +33,4 @@ For an example of usage from another package, see [[https://github.com/ErikPrant
 :PROPERTIES:
 :CUSTOM_ID: versioning-system
 :END:
-This project uses [[https://semver.org/][semantic versioning]].  While still on 0.y.z, an
-increment of y signals breaking changes.
+This project uses [[https://semver.org/][semantic versioning]].

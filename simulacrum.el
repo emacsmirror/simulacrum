@@ -3,7 +3,7 @@
 ;; Copyright (C) 2025, 2026  Erik Präntare
 
 ;; Author: Erik Präntare
-;; Version: 1.0.0
+;; Version: 1.1.0
 ;; Homepage: https://github.com/ErikPrantare/simulacrum.el
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: convenience
@@ -82,26 +82,49 @@ loop, not immediately."
            type))
   (setq unread-command-events
         (append unread-command-events
-                ;; (TYPE BEG END . DATA)
+                ;; (TYPE BEG END (DATA))
                 ;; When BEG or END is nil, Emacs uses `posn-at-point'.
                 ;; `describe-key' indirectly expects this form,
                 ;; through calling `event-start' and `event-end'.
                 ;; [2026-05-04 Mon]
-                (list (append (list type nil nil)
-                              data)))))
 
-(defvar simulacrum--last-event nil)
+                ;; We also let DATA be wrapped in a list, otherwise
+                ;; Emacs would interpret (TYPE nil nil nil) as a Lucid
+                ;; event type (see lucid_event_type_list_p in
+                ;; keyboard.c).  (TYPE nil nil (nil)) is correctly
+                ;; seen as non-Lucid.
+                (list (list type nil nil (list data))))))
+
+(defun simulacrum--event-data (event)
+  "Return the data associated to simulacrum-generated EVENT."
+  (car (nth 3 event)))
+
+(defvar simulacrum--last-event nil
+  "Last simulacrum event executed.")
 
 (defun simulacrum--execute-command (function)
   "Call FUNCTION with the data arguments of the current event.
 On `repeat', reuse the previous event's arguments."
-  (let ((arguments (nthcdr 3 (if (repeat-is-really-this-command)
-                                 simulacrum--last-event
-                               last-command-event))))
+  ;; Main reason for this wrapper is to be able to set
+  ;; `last-repeatable-command'.  I should consider somehow advising
+  ;; repeat to override last-repeatable-command at that point.
+  ;; `num-nonmacro-input-events' could be useda as an identifier for
+  ;; the command.
+  (let ((arguments (simulacrum--event-data
+                    (if (repeat-is-really-this-command)
+                        simulacrum--last-event
+                      last-command-event))))
+    (unless (or (repeat-is-really-this-command)
+                (eq last-event-frame 'macro))
+      (setq last-event-device "simulacrum"))
     (apply function arguments)
     (unless (repeat-is-really-this-command)
       (setq last-repeatable-command this-command)
       (setq simulacrum--last-event last-command-event))))
+
+(defvar simulacrum--command-underlying-function
+  (make-hash-table :weakness 'key)
+  "Hash-table mapping live simulacrum commands to the corresponding function.")
 
 (defun simulacrum-command (function)
   "Create a command from FUNCTION.
@@ -109,14 +132,34 @@ On `repeat', reuse the previous event's arguments."
 FUNCTION should take the same amount of arguments that is passed to
 `simulacrum-generate-event'.  The created command can then be bound in a
 keymap."
-  ;; TODO: Store this in a hash for when we eventually want to hack
-  ;; describe-key.  Remember to make the hash not hold the key from
-  ;; the garbage collector.  We are going to want to add-advice
-  ;; :filter-return to help--analyze-key to modify the returned value
-  ;; whenever the computed definition is part of our hash.
-  (lambda ()
-    (interactive)
-    (simulacrum--execute-command function)))
+  (let ((command (lambda ()
+                   (interactive)
+                   (simulacrum--execute-command function))))
+    (setf (map-elt simulacrum--command-underlying-function command) function)
+    command))
+
+(defun simulacrum--resolve-command (maybe-command)
+  "Return the underlying function of MAYBE-COMMAND a simulacrum command.
+If it is not a simulacrum command, return nil."
+  (map-elt simulacrum--command-underlying-function maybe-command))
+
+(define-advice help--analyze-key (:around (f key untranslated &optional buffer) simulacrum--resolve-command)
+  "Replace returned simulacrum commands with the underlying function."
+  (pcase-let* ((`(,brief-desc ,defn ,event ,mouse-msg) (funcall f key untranslated buffer)))
+    (when-let* ((function (simulacrum--resolve-command defn)))
+      (setq defn function)
+      (setq brief-desc (format "%s runs the command %s" (help-key-description key untranslated) defn)))
+    (list brief-desc defn event mouse-msg)))
+
+(define-advice repeat-message (:filter-args (arguments) simulacrum--resolve-command)
+  "Replace simulacrum commands in ARGS with their underlying function."
+  (pcase-let* ((`(,format . ,arguments) arguments))
+    (cons format (seq-map (lambda (argument)
+                            (or (simulacrum--resolve-command argument) argument))
+                          arguments))))
+
+(define-advice device-class (:before-until (_frame name) simulacrum--resolve-device-class)
+  (and (string-equal name "simulacrum") 'simulacrum))
 
 (provide 'simulacrum)
 ;;; simulacrum.el ends here

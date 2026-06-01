@@ -1,3 +1,13 @@
+* 1.1.0 [2026-06-01 Mon]
+- ~describe-key~ now describes the underlying function of the command.
+- ~repeat~ now prints the underlying function in its message.
+- ~last-event-device~ and ~device-class~ now report "simulacrum" as
+  the device.
+- Emacs' error messaging for unbound simulacrum events are now
+  correct.
+- Fix error message for unbound events when no data was attached to
+  the event.
+
 * 1.0.0 [2026-05-04 Mon]
 - Fix ~describe-key~ error on custom events.
 
